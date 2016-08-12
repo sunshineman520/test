@@ -1,1 +1,250 @@
 
+<?php
+/**
+  * wechat php test
+  */
+//define your token
+define("TOKEN", "ouyang");
+//创建一个$wechatobj实例
+$wechatObj = new wechatCallbackapiTest();
+if(isset($_GET['echostr']))
+{
+	$wechatObj->valid();
+}
+else 
+{
+	//调用消息回复函数，实现消息回复！
+	$wechatObj->responseMsg();
+}
+class wechatCallbackapiTest
+{
+	public function valid()
+    {
+        $echoStr = $_GET["echostr"];
+
+        //valid signature , option
+        if($this->checkSignature()){
+			header('content-type:text');
+        	echo $echoStr;
+        	exit;
+        }
+    }
+    //调用自动回复函数，当用户发出请求时会执行内部的逻辑判断执行
+    public function responseMsg()
+    {
+		//get post data, May be due to the different environments
+		$postStr = $GLOBALS["HTTP_RAW_POST_DATA"];
+
+      	//extract post data
+		if (!empty($postStr)){
+                /* libxml_disable_entity_loader is to prevent XML eXternal Entity Injection,
+                   the best way is to check the validity of xml by yourself */
+				//防止外部的xml注入，防止漏洞
+                libxml_disable_entity_loader(true);
+				//将xml格式数据转化为对象
+              	$postObj = simplexml_load_string($postStr, 'SimpleXMLElement', LIBXML_NOCDATA);
+				//发送方账号一个openID
+                $fromUsername = $postObj->FromUserName;
+				//微信开发者账号。
+                $toUsername = $postObj->ToUserName;
+				//获取的微信内容
+                $keyword = trim($postObj->Content);
+                $time = time();
+				//获取用户输入的内容的类型
+				$type=$postObj->MsgType;
+				if($type=="event")
+				{
+					$contentStr="感谢你的关注，输入”帮助“获取功能简介";
+					$this->sendText($type,$keyword,$fromUsername, $toUsername, $time, $msgType, $contentStr);
+					exit;
+				}
+				//此处为文本内容对应的自动回复
+				elseif($type=="text")
+				{
+					$keyword_two=mb_substr($keyword, 0,2,"utf-8");
+					$keyword_last=mb_substr($keyword, 2,400,"utf-8");
+					switch(true)
+					{
+						case $keyword == '帮助':
+							$contentStr="平台提供的帮助如下：\n1：看作者，2：查天气\n3：查翻译，4：查位置\n5：图灵机器。请输入对应号码获取提示信息！！";
+							$this->sendText($type,$keyword,$fromUsername, $toUsername, $time, $msgType, $contentStr);
+							break;
+						case $keyword == 1:
+							$contentStr="作者：php工程师——欧阳朋";
+							$this->sendText($type,$keyword,$fromUsername, $toUsername, $time, $msgType, $contentStr);
+							break;
+						case $keyword =="给我一篇文章";
+							$contentStr="我数据库还没有建好，等待下";
+							$this->sendText($type,$keyword,$fromUsername, $toUsername, $time, $msgType, $contentStr);
+							break;	
+						case $keyword == 2:
+							$contentStr="请输入”天气+地区“获取要查询的地区天气";
+							$this->sendText($type,$keyword,$fromUsername, $toUsername, $time, $msgType, $contentStr);
+							break;
+						case $keyword == 3:
+							$contentStr="请输入”翻译+内容“获取翻译";
+							$this->sendText($type,$keyword,$fromUsername,$toUsername,$time,$msgType,$contentStr);
+							break;
+						case $keyword_two=="翻译":
+							$contentStr=$this->English_To_Chinese($keyword_last);
+							$this->sendText($type,$keyword,$fromUsername,$toUsername,$time,$msgType,$contentStr);
+							break;
+						case $keyword_two=="天气";
+							$contentStr=$this->weather($keyword_last);
+							$this->sendText($type,$keyword,$fromUsername,$toUsername,$time,$msgType,$contentStr);
+							break;	
+						default:
+							$contentStr=$this->machine($keyword);
+							$this->sendText($type,$keyword,$fromUsername,$toUsername,$time,$msgType,$contentStr);
+							break;
+					}
+				}
+				//此处为图片内容对应的回复内容
+				elseif($type=="image")
+				{
+					$contentStr="图片类型，静候完善";
+					$this->sendText($type,$keyword,$fromUsername,$toUsername,$time,$msgType,$contentStr);
+					exit;
+				}
+				elseif($type=="video")
+				{
+					$contentStr="视频类型，静后完善";
+					$this->sendText($type,$keyword,$fromUsername,$toUsername,$time,$msgType,$contentStr);
+					exit;
+				}
+				elseif($type=="voice")
+				{
+					$contentStr="语音类型，静后完善";
+					$this->sendText($type,$keyword,$fromUsername,$toUsername,$time,$msgType,$contentStr);
+					exit;
+				}
+				elseif($type=="music")
+				{
+					$contentStr="音乐类型，静后完善";
+					$this->sendText($type,$keyword,$fromUsername,$toUsername,$time,$msgType,$contentStr);
+					exit;
+				}
+				elseif($type=="link")
+				{
+					$contentStr="链接类型，静候完善";
+					$this->sendText($type,$keyword,$fromUsername,$toUsername,$time,$msgType,$contentStr);
+					exit;
+				}
+				elseif($type=="location")
+				{
+					//获取经度和纬度信息
+					
+					$contentStr="地图模式类型，静候完善";
+					$this->sendText($type,$keyword,$fromUsername,$toUsername,$time,$msgType,$contentStr);
+					exit;
+				}
+				else
+				{
+					$contentStr="无法识别的模式，等待添加";
+					$this->sendText($type,$keyword,$fromUsername,$toUsername,$time,$msgType,$contentStr);
+					exit;
+				}
+		}
+    }
+		
+	private function checkSignature()
+	{
+        // you must define TOKEN by yourself
+        if (!defined("TOKEN")) {
+            throw new Exception('TOKEN is not defined!');
+        }
+        
+        $signature = $_GET["signature"];
+        $timestamp = $_GET["timestamp"];
+        $nonce = $_GET["nonce"];
+        		
+		$token = TOKEN;
+		$tmpArr = array($token, $timestamp, $nonce);
+        // use SORT_STRING rule
+		sort($tmpArr, SORT_STRING);
+		$tmpStr = implode( $tmpArr );
+		$tmpStr = sha1( $tmpStr );
+		
+		if( $tmpStr == $signature ){
+			return true;
+		}else{
+			return false;
+		}
+	}
+	//定义自动回复函数
+	private function sendText($type,$keyword,$fromUsername, $toUsername, $time, $msgType, $contentStr)
+	{
+		$textTpl = "<xml>
+					<ToUserName><![CDATA[%s]]></ToUserName>
+					<FromUserName><![CDATA[%s]]></FromUserName>
+					<CreateTime>%s</CreateTime>
+					<MsgType><![CDATA[%s]]></MsgType>
+					<Content><![CDATA[%s]]></Content>
+					<FuncFlag>0</FuncFlag>
+					</xml>";             
+					if(!empty( $keyword )||$type!="text")
+					{
+						$msgType = "text";
+						$resultStr = sprintf($textTpl, $fromUsername, $toUsername, $time, $msgType, $contentStr);
+						echo $resultStr;
+					}else{
+						echo "Input something...";
+					}
+	}
+	//获取翻译的函数
+	private function English_To_Chinese($keyword_last)
+	{
+		//http://fanyi.youdao.com/openapi.do?keyfrom=<keyfrom>&key=<key>&type=data&doctype=<doctype>&version=1.1&q=要翻译的文本
+		$url="http://fanyi.youdao.com/openapi.do?keyfrom=ouyangpeng&key=1788973931&type=data&doctype=json&version=1.1&q={$keyword_last}";
+		$data=file_get_contents($url);
+		$api=json_decode($data,true);
+		if($api['errorCode']==0)
+		{
+			return $api['translation'][0];
+		}
+		elseif($api['errorCode']==20)
+		{
+			return "翻译的文本过长";
+		}
+		elseif($api['errorCode']==30)
+		{
+			return "无法进行有效翻译";
+		}
+		elseif($api['errorCode']==40)
+		{
+			return "不支持的语言类型";
+		}
+		elseif($api['errorCode']==60)
+		{
+			return "无词典结果";
+		}	
+	}
+	//图灵机器人对话函数
+	private function machine($keyword)
+	{
+		$url="http://www.tuling123.com/openapi/api?key=b61c54b645f24a1bbc9239e5136bab2f&info={$keyword}";
+		$data=file_get_contents($url);
+		$api=json_decode($data,true);
+		return $api['text'];
+	}
+	//地图地址显示
+	private function map()
+	{
+
+	}
+	//天气预报接口
+	private function weather($keyword)
+	{
+		$url="http://api.map.baidu.com/telematics/v3/weather?location={$keyword}&output=json&ak=IabI0FusZaKuAjQBhQgXAKZCGNet2Cvh";
+		$data=file_get_contents($url);
+		$api=json_decode($data,true);
+		if($api['error']== 0)
+		{
+			$weatherStr=$api["results"]["0"]["currentCity"].$api["results"]["0"]["index"]["0"]['zs']."\n".$api["results"]["0"]["index"]["0"]['title'].":".$api["results"]["0"]["index"]["0"]['des'];
+			return $weatherStr;
+		}
+		return "请输入正确地区！！";
+	}
+}
+
+?>
