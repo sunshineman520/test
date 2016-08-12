@@ -4,7 +4,7 @@
   * wechat php test
   */
 //define your token
-define("TOKEN", "ouyang");
+define("TOKEN", "ouyangpeng");
 //创建一个$wechatobj实例
 $wechatObj = new wechatCallbackapiTest();
 if(isset($_GET['echostr']))
